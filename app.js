@@ -1,88 +1,41 @@
-const http = require('http');
-const fs = require('fs');
-const ejs = require('ejs');
-const url = require('url');
-const qs = require('querystring');
+var createError = require('http-errors');
+var express = require('express');
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
 
-const index_page = fs.readFileSync('./index.ejs','utf8');
-const other_page = fs.readFileSync('./other.ejs','utf8');
-const style_css = fs.readFileSync('./style.css','utf8');
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
 
-var server = http.createServer(getFromClient);
+var app = express();
 
-server.listen(3000);
-console.log('Server start');
-//メイン処理完
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-function getFromClient(request,response){
-    var url_parts = url.parse(request.url,true);
-    switch (url_parts.pathname) {
-        case '/':
-            response_index(request,response);
-            break;
-        
-        case '/other':
-            response_other(request,response);
-            break;
-        
-        case '/style.css':
-            response.writeHead(200,{'Content-Type':'text/css'})
-            response.write(style_css);
-            response.end();
-        break;
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
-        default:
-            response.writeHead(200,{'Content-Type':'text/plain'});
-            response.end('no page...')
-    }
-}
-var data = {
-    'Taro':'09-999-999',
-    'Hanako':'080-888-888',
-    'Sachiko':'070-777-777',
-    'Ichiro':'0606666-666',
-}
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
 
-function response_index(request,response){
-    var msg = "これはIndexページです。";
-    var content = ejs.render(index_page,{
-        title:"Index",
-        content:msg,
-        data:data,
-        filename:'data_item'
-    });
-    response.writeHead(200,{'Content-Type':'text/html'});
-    response.write(content);
-    response.end();
-};
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
+});
 
-function response_other(request,response){
-    var msg = "これはOtherページです。";
-    if(request.method =='POST'){
-        var body ='';
-        request.on('data',(data)=>{
-            body +=data;
-        });
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-        request.on('end',()=>{
-            var post_data = qs.parse(body);
-            msg += 'あなたは、「'+post_data.msg+'」と書きました。';
-            var content = ejs.render(other_page,{
-                title:"other",
-                content:msg,
-            });
-            response.writeHead(200,{'Content-Type':'text/html'});
-            response.write(content);
-            response.end();
-        });
-    } else{
-        var msg = "メッセージがありません";
-        var content = ejs.render(other_page,{
-            title:"Other",
-            content:msg
-        });
-        response.writeHead(200,{'Content-Type':'text/html'});
-        response.write(content);
-        response.end();
-    }
-};
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
+});
+
+module.exports = app;
